@@ -5,21 +5,6 @@
 #define ST7789_COMMAND_LEVEL 0
 #define ST7789_DATA_LEVEL 1
 
-#define ST7789_COLORMODE_65K    	0x50
-#define ST7789_COLORMODE_262K   	0x60
-#define ST7789_COLORMODE_12BIT  	0x03
-#define ST7789_COLORMODE_16BIT  	0x05
-#define ST7789_COLORMODE_18BIT  	0x06
-#define ST7789_COLORMODE_16M    	0x07
-
-#define ST7789_MADCTL_MY  				0x80
-#define ST7789_MADCTL_MX  				0x40
-#define ST7789_MADCTL_MV  				0x20
-#define ST7789_MADCTL_ML  				0x10
-#define ST7789_MADCTL_RGB 				0x00
-#define ST7789_MADCTL_BGR 				0x08
-#define ST7789_MADCTL_MH  				0x04
-
 static void ST7789_SendCommand(ST7789_st* st7789, uint8_t command);
 static void ST7789_SendData(ST7789_st* st7789, uint8_t* data, size_t size);
 
@@ -33,7 +18,8 @@ static void ST7789_ColumnSet(ST7789_st* st7789, uint16_t columnStart, uint16_t c
 static void ST7789_RowSet(ST7789_st* st7789, uint16_t rowStart, uint16_t rowEnd);
 static void ST7789_SetWindow(ST7789_st* st7789, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 
-static void ST7789_RamWrite(ST7789_st* st7789, uint16_t *pBuff, uint32_t len);
+static void ST7789_RAMWrite(ST7789_st* st7789, uint16_t* data, uint32_t len);
+static void ST7789_RAMWriteOneColor(ST7789_st* st7789, uint16_t color, uint32_t len);
 
 void ST7789_Init(ST7789_st* st7789, ST7789_Descriptor_st* descriptor){
 	st7789->descriptor.selectDataCommand = descriptor->selectDataCommand;
@@ -41,14 +27,12 @@ void ST7789_Init(ST7789_st* st7789, ST7789_Descriptor_st* descriptor){
 	st7789->descriptor.spiTransmit = descriptor->spiTransmit;
 	st7789->descriptor.height = descriptor->height;
 	st7789->descriptor.width = descriptor->width;
-	st7789->descriptor.dimension = descriptor->dimension;
 
-	if(st7789->descriptor.dimension == ST7789_240X280){
-		st7789->xStart = 0;
-		st7789->yStart = 20;
-		st7789->rotation = ST7789_MADCTL_RGB;
-		st7789->inversion = ST7789_INVON;
-	}
+	st7789->rotation = ST7789_ROTATION_VERTICAL;
+	st7789->inversion = ST7789_INVERTED;
+
+	st7789->xStart = 0;
+	st7789->yStart = 0;
 
 	uint8_t xStart0 = st7789->xStart >> 8;
 	uint8_t xStart1 = st7789->xStart & 0xFF;
@@ -59,8 +43,6 @@ void ST7789_Init(ST7789_st* st7789, ST7789_Descriptor_st* descriptor){
 	uint8_t yStart1 = st7789->yStart & 0xFF;
 	uint8_t yEnd0 = (st7789->descriptor.height - 1) >> 8;
 	uint8_t yEnd1 = (st7789->descriptor.height - 1) & 0xFF;
-
-	st7789->descriptor.spiChipSelect(st7789, 0);
 
 	ST7789_SendOneByteCommand(st7789, ST7789_SWRESET);
 	ST7789_SendOneByteCommand(st7789, ST7789_SLPOUT);
@@ -73,8 +55,37 @@ void ST7789_Init(ST7789_st* st7789, ST7789_Descriptor_st* descriptor){
 	ST7789_SendOneByteCommand(st7789, ST7789_DISPON);
 
 	ST7789_FillScreen(st7789, 0);
+}
 
-	st7789->descriptor.spiChipSelect(st7789, 1);
+void ST7789_SetRotation(ST7789_st* st7789, ST7789_Rotation_et rotation){
+	switch(rotation){
+	case ST7789_ROTATION_VERTICAL:
+		ST7789_SendTwoByteCommand(st7789, ST7789_MADCTL, ST7789_MADCTL_RGB);
+		break;
+	case ST7789_ROTATION_HORISONTAL:
+		ST7789_SendTwoByteCommand(st7789, ST7789_MADCTL, ST7789_MADCTL_MX | ST7789_MADCTL_MV | ST7789_MADCTL_RGB);
+		break;
+	}
+}
+
+void ST7789_SetInversion(ST7789_st* st7789, ST7789_Inversion_et inversion){
+
+	switch(inversion){
+	case ST7789_INVERTED:
+		ST7789_SendOneByteCommand(st7789, ST7789_INVON);
+		break;
+	case ST7789_NOT_INVERTED:
+		ST7789_SendOneByteCommand(st7789, ST7789_INVOFF);
+		break;
+	}
+}
+
+void ST7789_SetOffsetX(ST7789_st* st7789, uint8_t offset){
+	st7789->xStart = offset;
+}
+
+void ST7789_SetOffsetY(ST7789_st* st7789, uint8_t offset){
+	st7789->yStart = offset;
 }
 
 void ST7789_SetPixel(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t color){
@@ -82,8 +93,14 @@ void ST7789_SetPixel(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t color){
 		return;
 	}
 
+	uint8_t buff[2];
+	buff[0] = color >> 8;
+	buff[1] = color & 0xFF;
+
 	ST7789_SetWindow(st7789, x, y, x, y);
-	ST7789_RamWrite(st7789, &color, 1);
+
+	ST7789_SendCommand(st7789, ST7789_RAMWR);
+	ST7789_SendData(st7789, buff, 2);
 }
 
 void ST7789_FillScreen(ST7789_st* st7789, uint16_t color){
@@ -102,20 +119,14 @@ void ST7789_FillRect(ST7789_st* st7789, int16_t x, int16_t y, int16_t w, int16_t
 	}
 
 	ST7789_SetWindow(st7789, x, y, x + w - 1, y + h - 1);
-	ST7789_RamWrite(st7789, &color, (h * w));
+	ST7789_RAMWriteOneColor(st7789, color, (h * w));
 }
 
 
 
 static void ST7789_SetWindow(ST7789_st* st7789, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1){
-	st7789->descriptor.spiChipSelect(st7789, 0);
-
 	ST7789_ColumnSet(st7789, x0, x1);
 	ST7789_RowSet(st7789, y0, y1);
-
-	ST7789_SendOneByteCommand(st7789, ST7789_RAMWR);
-
-	st7789->descriptor.spiChipSelect(st7789, 1);
 }
 
 static void ST7789_ColumnSet(ST7789_st* st7789, uint16_t columnStart, uint16_t columnEnd){
@@ -146,43 +157,59 @@ static void ST7789_RowSet(ST7789_st* st7789, uint16_t rowStart, uint16_t rowEnd)
   ST7789_SendFiveByteCommand(st7789, ST7789_RASET, rowStart >> 8, rowStart & 0xFF, rowEnd >> 8, rowEnd & 0xFF);
 }
 
-static void ST7789_RamWrite(ST7789_st* st7789, uint16_t *pBuff, uint32_t len){
-
-	st7789->descriptor.spiChipSelect(st7789, 0);
-	st7789->descriptor.selectDataCommand(st7789, ST7789_DATA_LEVEL);
-
+static void ST7789_RAMWriteOneColor(ST7789_st* st7789, uint16_t color, uint32_t len){
 	uint8_t buff[2];
-	buff[0] = *pBuff >> 8;
-	buff[1] = *pBuff & 0xFF;
+	buff[0] = color >> 8;
+	buff[1] = color & 0xFF;
 
+	ST7789_SendCommand(st7789, ST7789_RAMWR);
 	while (len--){
-		st7789->descriptor.spiTransmit(st7789, buff, 2);
+		ST7789_SendData(st7789, buff, 2);
 	}
+}
+
+static void ST7789_RAMWrite(ST7789_st* st7789, uint16_t* data, uint32_t len){
+	ST7789_SendCommand(st7789, ST7789_RAMWR);
+	ST7789_SendData(st7789, data, len);
+}
+
+static void ST7789_SendCommand(ST7789_st* st7789, uint8_t command){
+	st7789->descriptor.spiChipSelect(st7789, 0);
+
+	st7789->descriptor.selectDataCommand(st7789, ST7789_COMMAND_LEVEL);
+	st7789->descriptor.spiTransmit(st7789, &command, 1);
 
 	st7789->descriptor.spiChipSelect(st7789, 1);
 }
 
-static void ST7789_SendCommand(ST7789_st* st7789, uint8_t command){
-	st7789->descriptor.selectDataCommand(st7789, ST7789_COMMAND_LEVEL);
-	st7789->descriptor.spiTransmit(st7789, &command, 1);
-}
-
 static void ST7789_SendData(ST7789_st* st7789, uint8_t* data, size_t size){
+	st7789->descriptor.spiChipSelect(st7789, 0);
+
 	st7789->descriptor.selectDataCommand(st7789, ST7789_DATA_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, data, size);
+
+	st7789->descriptor.spiChipSelect(st7789, 1);
 }
 
 static void ST7789_SendOneByteCommand(ST7789_st* st7789, ST7789_OneByteCommand_et command){
+	st7789->descriptor.spiChipSelect(st7789, 0);
+
 	st7789->descriptor.selectDataCommand(st7789, ST7789_COMMAND_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, &command, 1);
+
+	st7789->descriptor.spiChipSelect(st7789, 1);
 }
 
 static void ST7789_SendTwoByteCommand(ST7789_st* st7789, ST7789_TwoByteCommand_et command, uint8_t value){
+	st7789->descriptor.spiChipSelect(st7789, 0);
+
 	st7789->descriptor.selectDataCommand(st7789, ST7789_COMMAND_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, &command, 1);
 
 	st7789->descriptor.selectDataCommand(st7789, ST7789_DATA_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, &value, 1);
+
+	st7789->descriptor.spiChipSelect(st7789, 1);
 }
 
 static void ST7789_SendThreeByteCommand(ST7789_st* st7789, ST7789_ThreeByteCommand_et command, uint8_t value1, uint8_t value2){
@@ -197,17 +224,25 @@ static void ST7789_SendThreeByteCommand(ST7789_st* st7789, ST7789_ThreeByteComma
 static void ST7789_SendFourByteCommand(ST7789_st* st7789, ST7789_FourByteCommand_et command, uint8_t value1, uint8_t value2, uint8_t value3){
 	uint8_t buf[3] = {value1, value2, value3};
 
+	st7789->descriptor.spiChipSelect(st7789, 0);
+
 	st7789->descriptor.selectDataCommand(st7789, ST7789_COMMAND_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, &command, 1);
 	st7789->descriptor.selectDataCommand(st7789, ST7789_DATA_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, buf, 3);
+
+	st7789->descriptor.spiChipSelect(st7789, 1);
 }
 
 static void ST7789_SendFiveByteCommand(ST7789_st* st7789, ST7789_FourByteCommand_et command, uint8_t value1, uint8_t value2, uint8_t value3, uint8_t value4){
 	uint8_t buf[4] = {value1, value2, value3, value4};
 
+	st7789->descriptor.spiChipSelect(st7789, 0);
+
 	st7789->descriptor.selectDataCommand(st7789, ST7789_COMMAND_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, &command, 1);
 	st7789->descriptor.selectDataCommand(st7789, ST7789_DATA_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, buf, 4);
+
+	st7789->descriptor.spiChipSelect(st7789, 1);
 }

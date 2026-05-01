@@ -1,6 +1,21 @@
 #ifndef ST7789_COMMANDS_H_
 #define ST7789_COMMANDS_H_
 
+#define ST7789_COLORMODE_65K    	0x50
+#define ST7789_COLORMODE_262K   	0x60
+#define ST7789_COLORMODE_12BIT  	0x03
+#define ST7789_COLORMODE_16BIT  	0x05
+#define ST7789_COLORMODE_18BIT  	0x06
+#define ST7789_COLORMODE_16M    	0x07
+
+#define ST7789_MADCTL_MY  				0x80
+#define ST7789_MADCTL_MX  				0x40
+#define ST7789_MADCTL_MV  				0x20
+#define ST7789_MADCTL_ML  				0x10
+#define ST7789_MADCTL_RGB 				0x00
+#define ST7789_MADCTL_BGR 				0x08
+#define ST7789_MADCTL_MH  				0x04
+
 typedef enum{
 	ST7789_SWRESET           = 0x01,
 	ST7789_SLPOUT            = 0x11,
