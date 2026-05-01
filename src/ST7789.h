@@ -4,6 +4,12 @@
 #include "stdio.h"
 #include "stdint.h"
 
+//#define ST7789_USE_TEMP_BUFFER
+
+#ifdef ST7789_USE_TEMP_BUFFER
+#define DISPLAY_BUFFER_SIZE 240
+#endif
+
 #define RGB565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b>> 3))
 
 typedef enum ST7789_Rotation ST7789_Rotation_et;
@@ -41,6 +47,10 @@ struct ST7789{
 	uint8_t yStart;
 	ST7789_Rotation_et rotation;
 	ST7789_Inversion_et inversion;
+
+#ifdef ST7789_USE_TEMP_BUFFER
+	uint16_t displayBuffer[DISPLAY_BUFFER_SIZE];
+#endif
 };
 
 #ifdef __cplusplus

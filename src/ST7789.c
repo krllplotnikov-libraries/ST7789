@@ -18,7 +18,7 @@ static void ST7789_ColumnSet(ST7789_st* st7789, uint16_t columnStart, uint16_t c
 static void ST7789_RowSet(ST7789_st* st7789, uint16_t rowStart, uint16_t rowEnd);
 static void ST7789_SetWindow(ST7789_st* st7789, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 
-static void ST7789_RAMWrite(ST7789_st* st7789, uint16_t* data, uint32_t len);
+static void ST7789_RAMWrite(ST7789_st* st7789, uint8_t* data, uint32_t len);
 static void ST7789_RAMWriteOneColor(ST7789_st* st7789, uint16_t color, uint32_t len);
 
 void ST7789_Init(ST7789_st* st7789, ST7789_Descriptor_st* descriptor){
@@ -93,14 +93,12 @@ void ST7789_SetPixel(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t color){
 		return;
 	}
 
-	uint8_t buff[2];
-	buff[0] = color >> 8;
-	buff[1] = color & 0xFF;
+	color = ((color & 0xFF) << 8) | (color >> 8);
 
 	ST7789_SetWindow(st7789, x, y, x, y);
 
 	ST7789_SendCommand(st7789, ST7789_RAMWR);
-	ST7789_SendData(st7789, buff, 2);
+	ST7789_SendData(st7789, (uint8_t*)&color, 2);
 }
 
 void ST7789_FillScreen(ST7789_st* st7789, uint16_t color){
@@ -118,8 +116,24 @@ void ST7789_FillRect(ST7789_st* st7789, int16_t x, int16_t y, int16_t w, int16_t
 		h = st7789->descriptor.height - y;
 	}
 
+#ifdef ST7789_USE_TEMP_BUFFER
+	if(h * w <= DISPLAY_BUFFER_SIZE){
+		for(uint16_t i = 0; i < h; i++){
+			for(uint16_t j = 0; j < w; j++){
+				st7789->displayBuffer[j + i * w] = ((color & 0xFF) << 8) | (color >> 8);
+			}
+		}
+		ST7789_SetWindow(st7789, x, y, x + w - 1, y + h - 1);
+		ST7789_RAMWrite(st7789, (uint8_t*)st7789->displayBuffer, h * w * 2);
+	}
+	else{
+		ST7789_SetWindow(st7789, x, y, x + w - 1, y + h - 1);
+		ST7789_RAMWriteOneColor(st7789, color, h * w);
+	}
+#else
 	ST7789_SetWindow(st7789, x, y, x + w - 1, y + h - 1);
-	ST7789_RAMWriteOneColor(st7789, color, (h * w));
+	ST7789_RAMWriteOneColor(st7789, color, h * w);
+#endif
 }
 
 
@@ -168,7 +182,7 @@ static void ST7789_RAMWriteOneColor(ST7789_st* st7789, uint16_t color, uint32_t 
 	}
 }
 
-static void ST7789_RAMWrite(ST7789_st* st7789, uint16_t* data, uint32_t len){
+static void ST7789_RAMWrite(ST7789_st* st7789, uint8_t* data, uint32_t len){
 	ST7789_SendCommand(st7789, ST7789_RAMWR);
 	ST7789_SendData(st7789, data, len);
 }
