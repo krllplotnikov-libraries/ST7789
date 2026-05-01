@@ -5,6 +5,9 @@
 #define ST7789_COMMAND_LEVEL 0
 #define ST7789_DATA_LEVEL 1
 
+
+
+//-----Private Function Definition-----
 static void ST7789_SendCommand(ST7789_st* st7789, uint8_t command);
 static void ST7789_SendData(ST7789_st* st7789, uint8_t* data, size_t size);
 
@@ -21,6 +24,10 @@ static void ST7789_SetWindow(ST7789_st* st7789, uint16_t x0, uint16_t y0, uint16
 static void ST7789_RAMWrite(ST7789_st* st7789, uint8_t* data, uint32_t len);
 static void ST7789_RAMWriteOneColor(ST7789_st* st7789, uint16_t color, uint32_t len);
 
+
+
+//-----Public Function Definition-----
+//-----Initialization-----
 void ST7789_Init(ST7789_st* st7789, ST7789_Descriptor_st* descriptor){
 	st7789->descriptor.selectDataCommand = descriptor->selectDataCommand;
 	st7789->descriptor.spiChipSelect = descriptor->spiChipSelect;
@@ -53,8 +60,6 @@ void ST7789_Init(ST7789_st* st7789, ST7789_Descriptor_st* descriptor){
 	ST7789_SendOneByteCommand(st7789, ST7789_INVON);
 	ST7789_SendOneByteCommand(st7789, ST7789_NORON);
 	ST7789_SendOneByteCommand(st7789, ST7789_DISPON);
-
-	ST7789_FillScreen(st7789, 0);
 }
 
 void ST7789_SetRotation(ST7789_st* st7789, ST7789_Rotation_et rotation){
@@ -88,6 +93,9 @@ void ST7789_SetOffsetY(ST7789_st* st7789, uint8_t offset){
 	st7789->yStart = offset;
 }
 
+
+
+//-----Draw-----
 void ST7789_SetPixel(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t color){
 	if ((x < 0) ||(x >= st7789->descriptor.width) || (y < 0) || (y >= st7789->descriptor.height)){
 		return;
@@ -96,9 +104,7 @@ void ST7789_SetPixel(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t color){
 	color = ((color & 0xFF) << 8) | (color >> 8);
 
 	ST7789_SetWindow(st7789, x, y, x, y);
-
-	ST7789_SendCommand(st7789, ST7789_RAMWR);
-	ST7789_SendData(st7789, (uint8_t*)&color, 2);
+	ST7789_RAMWrite(st7789, (uint8_t*)&color, 2);
 }
 
 void ST7789_FillScreen(ST7789_st* st7789, uint16_t color){
@@ -116,59 +122,60 @@ void ST7789_FillRect(ST7789_st* st7789, int16_t x, int16_t y, int16_t w, int16_t
 		h = st7789->descriptor.height - y;
 	}
 
-#ifdef ST7789_USE_TEMP_BUFFER
 	if(h * w <= DISPLAY_BUFFER_SIZE){
 		for(uint16_t i = 0; i < h; i++){
 			for(uint16_t j = 0; j < w; j++){
-				st7789->displayBuffer[j + i * w] = ((color & 0xFF) << 8) | (color >> 8);
+				st7789->tempBuffer[j + i * w] = ((color & 0xFF) << 8) | (color >> 8);
 			}
 		}
 		ST7789_SetWindow(st7789, x, y, x + w - 1, y + h - 1);
-		ST7789_RAMWrite(st7789, (uint8_t*)st7789->displayBuffer, h * w * 2);
+		ST7789_RAMWrite(st7789, (uint8_t*)st7789->tempBuffer, h * w * 2);
 	}
 	else{
-		ST7789_SetWindow(st7789, x, y, x + w - 1, y + h - 1);
-		ST7789_RAMWriteOneColor(st7789, color, h * w);
+		for(uint16_t i = 0; i < h; i++){
+			for(uint16_t j = 0; j < w; j++){
+				st7789->tempBuffer[j] = ((color & 0xFF) << 8) | (color >> 8);
+			}
+			ST7789_SetWindow(st7789, x, y + i, x + w - 1, y + i);
+			ST7789_RAMWrite(st7789, (uint8_t*)st7789->tempBuffer, w * 2);
+		}
 	}
-#else
-	ST7789_SetWindow(st7789, x, y, x + w - 1, y + h - 1);
-	ST7789_RAMWriteOneColor(st7789, color, h * w);
-#endif
 }
 
 
 
+//-----Private Function Implementation-----
 static void ST7789_SetWindow(ST7789_st* st7789, uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1){
 	ST7789_ColumnSet(st7789, x0, x1);
 	ST7789_RowSet(st7789, y0, y1);
 }
 
 static void ST7789_ColumnSet(ST7789_st* st7789, uint16_t columnStart, uint16_t columnEnd){
-  if (columnStart > columnEnd){
-    return;
-  }
-  if (columnStart > st7789->descriptor.width){
-    return;
-  }
+	if (columnStart > columnEnd){
+		return;
+	}
+	if (columnStart > st7789->descriptor.width){
+		return;
+	}
 
-  columnStart += st7789->xStart;
-  columnEnd += st7789->xStart;
+	columnStart += st7789->xStart;
+	columnEnd += st7789->xStart;
 
-  ST7789_SendFiveByteCommand(st7789, ST7789_CASET, columnStart >> 8, columnStart & 0xFF, columnEnd >> 8, columnEnd & 0xFF);
+	ST7789_SendFiveByteCommand(st7789, ST7789_CASET, columnStart >> 8, columnStart & 0xFF, columnEnd >> 8, columnEnd & 0xFF);
 }
 
 static void ST7789_RowSet(ST7789_st* st7789, uint16_t rowStart, uint16_t rowEnd){
-  if (rowStart > rowEnd){
-    return;
-  }
-  if (rowEnd > st7789->descriptor.height){
-    return;
-  }
+	if (rowStart > rowEnd){
+		return;
+	}
+	if (rowEnd > st7789->descriptor.height){
+		return;
+	}
 
-  rowStart += st7789->yStart;
-  rowEnd += st7789->yStart;
+	rowStart += st7789->yStart;
+	rowEnd += st7789->yStart;
 
-  ST7789_SendFiveByteCommand(st7789, ST7789_RASET, rowStart >> 8, rowStart & 0xFF, rowEnd >> 8, rowEnd & 0xFF);
+	ST7789_SendFiveByteCommand(st7789, ST7789_RASET, rowStart >> 8, rowStart & 0xFF, rowEnd >> 8, rowEnd & 0xFF);
 }
 
 static void ST7789_RAMWriteOneColor(ST7789_st* st7789, uint16_t color, uint32_t len){
@@ -187,6 +194,9 @@ static void ST7789_RAMWrite(ST7789_st* st7789, uint8_t* data, uint32_t len){
 	ST7789_SendData(st7789, data, len);
 }
 
+
+
+//-----Send-----
 static void ST7789_SendCommand(ST7789_st* st7789, uint8_t command){
 	st7789->descriptor.spiChipSelect(st7789, 0);
 

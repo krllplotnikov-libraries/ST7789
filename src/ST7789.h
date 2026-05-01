@@ -4,11 +4,7 @@
 #include "stdio.h"
 #include "stdint.h"
 
-//#define ST7789_USE_TEMP_BUFFER
-
-#ifdef ST7789_USE_TEMP_BUFFER
-#define DISPLAY_BUFFER_SIZE 240
-#endif
+#define DISPLAY_BUFFER_SIZE 320
 
 #define RGB565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b>> 3))
 
@@ -21,7 +17,6 @@ typedef struct ST7789            ST7789_st;
 typedef void (*SPI_Transmit)      (ST7789_st* st7789, uint8_t* data, size_t size);
 typedef void (*SPI_ChipSelect)    (ST7789_st* st7789, uint8_t level);
 typedef void (*SelectDataCommand) (ST7789_st* st7789, uint8_t level);
-typedef void (*Reset)             (ST7789_st* st7789, uint8_t level);
 
 enum ST7789_Rotation{
 	ST7789_ROTATION_VERTICAL,
@@ -48,9 +43,7 @@ struct ST7789{
 	ST7789_Rotation_et rotation;
 	ST7789_Inversion_et inversion;
 
-#ifdef ST7789_USE_TEMP_BUFFER
-	uint16_t displayBuffer[DISPLAY_BUFFER_SIZE];
-#endif
+	uint16_t tempBuffer[DISPLAY_BUFFER_SIZE];
 };
 
 #ifdef __cplusplus
