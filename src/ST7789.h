@@ -17,7 +17,12 @@ typedef void (*SelectDataCommand) (ST7789_st* st7789, uint8_t level);
 typedef void (*Reset)             (ST7789_st* st7789, uint8_t level);
 
 enum ST7789_Dimension{
-	ST7789_240X280
+	ST7789_76X284,
+	ST7789_135X240,
+	ST7789_240X240,
+	ST7789_172X320,
+	ST7789_240X280,
+	ST7789_240X320,
 };
 
 struct ST7789_Descriptor{

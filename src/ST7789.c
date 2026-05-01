@@ -72,6 +72,8 @@ void ST7789_Init(ST7789_st* st7789, ST7789_Descriptor_st* descriptor){
 	ST7789_SendOneByteCommand(st7789, ST7789_NORON);
 	ST7789_SendOneByteCommand(st7789, ST7789_DISPON);
 
+	ST7789_FillScreen(st7789, 0);
+
 	st7789->descriptor.spiChipSelect(st7789, 1);
 }
 
@@ -184,22 +186,28 @@ static void ST7789_SendTwoByteCommand(ST7789_st* st7789, ST7789_TwoByteCommand_e
 }
 
 static void ST7789_SendThreeByteCommand(ST7789_st* st7789, ST7789_ThreeByteCommand_et command, uint8_t value1, uint8_t value2){
-	uint8_t buf[3] = {command, value1, value2};
+	uint8_t buf[3] = {value1, value2};
+
+	st7789->descriptor.selectDataCommand(st7789, ST7789_COMMAND_LEVEL);
+	st7789->descriptor.spiTransmit(st7789, &command, 1);
+	st7789->descriptor.selectDataCommand(st7789, ST7789_DATA_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, buf, 3);
 }
 
 static void ST7789_SendFourByteCommand(ST7789_st* st7789, ST7789_FourByteCommand_et command, uint8_t value1, uint8_t value2, uint8_t value3){
-	ST7789_SendCommand(st7789, command);
-	ST7789_SendCommand(st7789, value1);
-	ST7789_SendCommand(st7789, value2);
-	ST7789_SendCommand(st7789, value3);
-}
+	uint8_t buf[3] = {value1, value2, value3};
 
-static void ST7789_SendFiveByteCommand(ST7789_st* st7789, ST7789_FourByteCommand_et command, uint8_t value1, uint8_t value2, uint8_t value3, uint8_t value4){
 	st7789->descriptor.selectDataCommand(st7789, ST7789_COMMAND_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, &command, 1);
 	st7789->descriptor.selectDataCommand(st7789, ST7789_DATA_LEVEL);
+	st7789->descriptor.spiTransmit(st7789, buf, 3);
+}
 
+static void ST7789_SendFiveByteCommand(ST7789_st* st7789, ST7789_FourByteCommand_et command, uint8_t value1, uint8_t value2, uint8_t value3, uint8_t value4){
 	uint8_t buf[4] = {value1, value2, value3, value4};
+
+	st7789->descriptor.selectDataCommand(st7789, ST7789_COMMAND_LEVEL);
+	st7789->descriptor.spiTransmit(st7789, &command, 1);
+	st7789->descriptor.selectDataCommand(st7789, ST7789_DATA_LEVEL);
 	st7789->descriptor.spiTransmit(st7789, buf, 4);
 }
