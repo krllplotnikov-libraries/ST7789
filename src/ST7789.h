@@ -38,8 +38,8 @@ struct ST7789_Descriptor{
 
 struct ST7789{
 	ST7789_Descriptor_st descriptor;
-	uint8_t xStart;
-	uint8_t yStart;
+	uint8_t xOffset;
+	uint8_t yOffset;
 	ST7789_Rotation_et rotation;
 	ST7789_Inversion_et inversion;
 
