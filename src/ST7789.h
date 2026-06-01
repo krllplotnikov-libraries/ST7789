@@ -57,7 +57,7 @@ void ST7789_SetOffsetX(ST7789_st* st7789, uint8_t offset);
 void ST7789_SetOffsetY(ST7789_st* st7789, uint8_t offset);
 
 void ST7789_SetPixel(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t color);
-void ST7789_SetPixelArray(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+void ST7789_SetPixelArray(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t* color, uint8_t singleFlag);
 
 void ST7789_FillScreen(ST7789_st* st7789, uint16_t color);
 

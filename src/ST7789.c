@@ -119,7 +119,7 @@ void ST7789_SetPixel(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t color){
 	ST7789_RAMWrite(st7789, (uint8_t*)&color, 2);
 }
 
-void ST7789_SetPixelArray(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color){
+void ST7789_SetPixelArray(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t* color, uint8_t singleFlag){
 	if ((x >= st7789->descriptor.width) || (y >= st7789->descriptor.height)){
 		return;
 	}
@@ -133,7 +133,12 @@ void ST7789_SetPixelArray(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t w,
 	if(h * w <= DISPLAY_BUFFER_SIZE){
 		for(uint16_t i = 0; i < h; i++){
 			for(uint16_t j = 0; j < w; j++){
-				st7789->tempBuffer[j + i * w] = ((color & 0xFF) << 8) | (color >> 8);
+				if(singleFlag){
+					st7789->tempBuffer[j + i * w] = ((color[0] & 0xFF) << 8) | (color[0] >> 8);
+				}
+				else{
+					st7789->tempBuffer[j + i * w] = ((color[j + i * w] & 0xFF) << 8) | (color[j + i * w] >> 8);
+				}
 			}
 		}
 		ST7789_SetWindow(st7789, x, y, x + w - 1, y + h - 1);
@@ -142,7 +147,12 @@ void ST7789_SetPixelArray(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t w,
 	else{
 		for(uint16_t i = 0; i < h; i++){
 			for(uint16_t j = 0; j < w; j++){
-				st7789->tempBuffer[j] = ((color & 0xFF) << 8) | (color >> 8);
+				if(singleFlag){
+					st7789->tempBuffer[j] = ((color[0] & 0xFF) << 8) | (color[0] >> 8);
+				}
+				else{
+					st7789->tempBuffer[j] = ((color[j + i * w] & 0xFF) << 8) | (color[j + i * w] >> 8);
+				}
 			}
 			ST7789_SetWindow(st7789, x, y + i, x + w - 1, y + i);
 			ST7789_RAMWrite(st7789, (uint8_t*)st7789->tempBuffer, w * 2);
@@ -151,7 +161,7 @@ void ST7789_SetPixelArray(ST7789_st* st7789, uint16_t x, uint16_t y, uint16_t w,
 }
 
 void ST7789_FillScreen(ST7789_st* st7789, uint16_t color){
-	ST7789_SetPixelArray(st7789, 0, 0, st7789->descriptor.width, st7789->descriptor.height, color);
+	ST7789_SetPixelArray(st7789, 0, 0, st7789->descriptor.width, st7789->descriptor.height, &color, 1);
 }
 
 
