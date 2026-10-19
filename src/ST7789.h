@@ -14,9 +14,9 @@ typedef enum ST7789_Inversion ST7789_Inversion_et;
 typedef struct ST7789_Descriptor ST7789_Descriptor_st;
 typedef struct ST7789            ST7789_st;
 
-typedef void (*SPI_Transmit)      (ST7789_st* st7789, uint8_t* data, size_t size);
-typedef void (*SPI_ChipSelect)    (ST7789_st* st7789, uint8_t level);
-typedef void (*SelectDataCommand) (ST7789_st* st7789, uint8_t level);
+typedef void (*ST7789_SPI_Transmit)      (ST7789_st* st7789, uint8_t* data, size_t size);
+typedef void (*ST7789_SPI_ChipSelect)    (ST7789_st* st7789, uint8_t level);
+typedef void (*ST7789_SelectDataCommand) (ST7789_st* st7789, uint8_t level);
 
 enum ST7789_Rotation{
 	ST7789_ROTATION_VERTICAL,
@@ -29,11 +29,11 @@ enum ST7789_Inversion{
 };
 
 struct ST7789_Descriptor{
-	SPI_Transmit         spiTransmit;
-	SPI_ChipSelect       spiChipSelect;
-	SelectDataCommand    selectDataCommand;
-	uint16_t             height;
-	uint16_t             width;
+	ST7789_SPI_Transmit         spiTransmit;
+	ST7789_SPI_ChipSelect       spiChipSelect;
+	ST7789_SelectDataCommand    selectDataCommand;
+	uint16_t                    height;
+	uint16_t                    width;
 };
 
 struct ST7789{
